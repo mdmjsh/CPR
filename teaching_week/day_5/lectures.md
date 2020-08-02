@@ -42,7 +42,7 @@
 
 - implementing: add `-behaviour:gen_server`
 - starting a server: `-gen_server:start_link(...)` - (instead of spawn)
-    - gen_server:start_lin//4 creates a new server
+    - gen_server:start_link/4 creates a new server
 - `init/1` is called by the server callback module
     - initialises the process state and returns the loop data
     - this is user defined code in the Mod argument passed into gen_server.
