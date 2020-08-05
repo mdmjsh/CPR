@@ -1,0 +1,15 @@
+{application, pizza_fsm,
+ [{description, "An OTP application for ordering pizzas"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, {pizza_fsm_app, []}},
+  {applications,
+   [kernel,
+    stdlib
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {licenses, ["Apache 2.0"]},
+  {links, []}
+ ]}.
