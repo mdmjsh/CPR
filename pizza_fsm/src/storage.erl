@@ -1,9 +1,15 @@
 -module(storage).
 
 -export([initDB/1, add_item/2, remove_item/2, get_cart/1, lookup/1, load_menu/0]).
+-export([add_address/6, add_card_details/4]).
 
 -record(cartDB, {referenceID, items=[], total=0}).
+-record(deliveryAddresses, {referenceID, city, country, street, number, name}).
 -record(menu, {itemId, type, item, string, price}).
+-record(creditCards, {referenceID, ccNumber, expMo, expY}).
+
+%% Setup operations
+%% ------------------------
 
 % pass in list of nodes, e.g. [node()] to run DB on
 initDB(Nodes) ->
@@ -13,7 +19,9 @@ initDB(Nodes) ->
     % (i.e table doesn't exist, create table)
     try
         mnesia:table_info(type, cartDB),
-        mnesia:table_info(type, menu)
+        mnesia:table_info(type, menu),
+        mnesia:table_info(type, deliveryAddresses),
+        mnesia:table_info(type, creditCards)
     catch
         exit: _ ->
             io:format("initialising Mnesia.... ~n"),
@@ -21,6 +29,12 @@ initDB(Nodes) ->
                 {type, ordered_set},
                 {disc_copies, Nodes}]),
             mnesia:create_table(menu, [{attributes, record_info(fields, menu)},
+                {type, ordered_set},
+                {ram_copies, Nodes}]),
+            mnesia:create_table(menu, [{attributes, record_info(fields, deliveryAddresses)},
+                {type, ordered_set},
+                {ram_copies, Nodes}]),
+            mnesia:create_table(menu, [{attributes, record_info(fields, creditCards)},
                 {type, ordered_set},
                 {ram_copies, Nodes}]),
             load_menu()
@@ -47,7 +61,8 @@ load_menu([]) ->
     io:format("Menu loaded. ~n"),
     {ok} .
 
-
+%% Write Operations
+%% ------------------------
 add_item(ReferenceId, init) ->
     io:format("Creating empty cart ~p... ~n", [ReferenceId]),
     F = fun() ->
@@ -75,7 +90,7 @@ remove_item(ReferenceId, Item)  ->
     [Cart] = get_cart(ReferenceId),
     io:format("Found cart ~p ~n", [Cart]),
     Items = lists:delete(Item_, Cart#cartDB.items),
-    Total = Cart#cartDB.total + ItemPrice,
+    Total = Cart#cartDB.total - ItemPrice,
 
     F = fun() ->
         mnesia:write(#cartDB{referenceID=ReferenceId, items=Items, total=Total})
@@ -84,6 +99,36 @@ remove_item(ReferenceId, Item)  ->
     io:format("Cart total is now ~p... ~n", [Total]),
     mnesia:transaction(F).
 
+
+add_address(ReferenceId, Country, City, Street, Number, Name) ->
+        io:format("Adding address details... ~n"),
+        F = fun() ->
+        mnesia:write(#deliveryAddresses{
+            referenceID=ReferenceId,
+            country=Country,
+            city=City,
+            street=Street,
+            number=Number,
+            name=Name
+            })
+        end,
+        mnesia:transaction(F) .
+
+add_card_details(ReferenceId, ReferenceId, CCNumber, {ExpMo,ExpY}) ->
+    io:format("Adding card details... ~n"),
+    F = fun() ->
+        mnesia:write(#creditCards{
+            referenceID=ReferenceId,
+            ccNumber=CCNumber,
+            expMo=ExpMo,
+            expY=ExpY
+            })
+        end,
+        mnesia:transaction(F) .
+
+
+%% Read Operations
+%% ------------------------
 lookup(Item) ->
     io:format("Retrieving ~p from menu... ~n", [Item]),
     F = fun() ->
