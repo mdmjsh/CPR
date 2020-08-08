@@ -1,5 +1,5 @@
 [{pizza, cheese, "Margherita", 5.0},
-{pizza, cheese, "Funghi", 5.5},
+{pizza, mushroom, "Funghi", 5.5},
 {pizza, vegetable, "Vegetable", 5.5}
 ] .
 
