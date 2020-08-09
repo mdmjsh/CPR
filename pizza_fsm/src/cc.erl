@@ -1,9 +1,9 @@
 -module(cc).
 -export([is_valid/3]).
--export([check_expiry/3, check_address/2, check_funds/2]).
+-export([check_expiry/2, check_address/2, check_funds/2]).
 -export([transaction/4, cancel/1]).
 
-check_expiry(_, ExpMo, ExpYr) ->
+check_expiry(_, {ExpMo, ExpYr}) ->
     Valid = ExpMo + ExpYr < 44,
     Valid .
 
