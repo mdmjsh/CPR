@@ -1,4 +1,8 @@
-[{<<"uuid">>,
+[{<<"erlcard">>,
+  {git,"https://github.com/silviucpp/erlcard.git",
+       {ref,"6e826942761959b5b989847c589e7f52345f618d"}},
+  0},
+ {<<"uuid">>,
   {git,"https://github.com/avtobiff/erlang-uuid.git",
        {ref,"cb02a2039a9b29dd2eef0446039c9c6e164df9ef"}},
   0}].

@@ -46,10 +46,17 @@ address(ReferenceId, Address) ->
     gen_statem:cast(?NAME, {address, [ReferenceId, Address]}),
     ok .
 
-credit_card(ReferenceId, CCNumber, {ExpMo,ExpY}) ->
-    gen_statem:call(?NAME, {credit_card, ReferenceId, CCNumber, {ExpMo,ExpY}}),
-    checkout(CCNumber),
-    ok .
+credit_card(ReferenceId, CCNumber, {ExpMo,ExpYr}) ->
+    Address = storage:get_address(ReferenceId),
+    Response = case cc:is_valid(Address, CCNumber, {ExpMo, ExpYr}) of
+        true ->
+            gen_statem:call(?NAME, {credit_card, ReferenceId, CCNumber, {ExpMo,ExpYr}}),
+            checkout(CCNumber),
+            ok;
+        false ->
+            {error, card_invalid}
+        end,
+    Response .
 
 delivered(ReferenceId) ->
     gen_statem:call(?NAME, {ReferenceId}),
@@ -107,8 +114,8 @@ payment(cast, {address, [ReferenceId, [{_, {Number, Street},
     storage:add_address(ReferenceId, Country, City, Street, Number, Name),
     {keep_state, {}} ;
 
-payment({call, From}, {credit_card, ReferenceId, CCNumber, {ExpMo,ExpY}}, _) ->
-    storage:add_card_details(ReferenceId, ReferenceId, CCNumber, {ExpMo,ExpY}),
+payment({call, From}, {credit_card, ReferenceId, CCNumber, {ExpMo,ExpYr}}, _) ->
+    storage:add_card_details(ReferenceId, ReferenceId, CCNumber, {ExpMo,ExpYr}),
     gen_statem:reply(From, ok),
     {keep_state, {}} ;
     % {next_state, delivery, []}.

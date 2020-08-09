@@ -18,8 +18,11 @@ rabbit() ->
         {country, "England"}}]
         ) ,
 
+    % invalid card
     cart:credit_card(
         Reference,
-        12344657891023833, {08, 21}
-        ) .
+        "12344657891023833", {08, 21}
+        ) ,
+
+    cart:credit_card(Reference, "5500005555555559", {08, 21}).
     % cart:delivered(Reference).

@@ -1,6 +1,6 @@
 -module(storage).
 
--export([initDB/1, add_item/2, remove_item/2, get_cart/1, lookup/1, load_menu/0]).
+-export([initDB/1, add_item/2, remove_item/2, get_cart/1, get_address/1, lookup/1, load_menu/0]).
 -export([add_address/6, add_card_details/4]).
 
 -record(cartDB, {referenceID, items=[], total=0}).
@@ -142,6 +142,13 @@ lookup(Item) ->
 get_cart(ReferenceId) ->
     F = fun() ->
         mnesia:read({cartDB, ReferenceId})
+    end,
+    {_, Results} = mnesia:transaction(F),
+    Results .
+
+get_address(ReferenceId) ->
+    F = fun() ->
+        mnesia:read({deliveryAddresses, ReferenceId})
     end,
     {_, Results} = mnesia:transaction(F),
     Results .
