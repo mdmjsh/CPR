@@ -1,28 +1,35 @@
 -module(run).
--export([rabbit/0]).
+-export([run/0]).
+% -export([shopping/0, payment/1]).
 
-rabbit() ->
+run() ->
+    % shopping
     storage:initDB([node()]),
-    {_, Reference} = cart:start_link(a),
-    cart:add(Reference, {pizza, cheese}),
-    cart:add(Reference, {pizza, mushroom}),
-    cart:add(Reference, {pizza, mushroom}),
-    cart:remove(Reference, {pizza, mushroom}),
-    cart:checkout(Reference),
+    {_, R} = cart:start_link(a),
+    cart:add(R, {pizza, cheese}),
+    cart:add(R, {pizza, mushroom}),
+    cart:add(R, {pizza, mushroom}),
+    cart:remove(R, {pizza, mushroom}),
+    cart:checkout(R),
+    R .
 
+shopping(R) ->
+    % payment
     cart:address(
-        Reference,
+        R,
         [{address, {54, "Some road"},
         {name, "Bob Jones"},
         {city, "London"},
         {country, "England"}}]
         ) ,
 
-    % invalid card
-    cart:credit_card(
-        Reference,
-        "12344657891023833", {08, 21}
-        ) ,
-
-    cart:credit_card(Reference, "5500005555555559", {08, 21}).
-    % cart:delivered(Reference).
+    % % invalid card
+    % cart:credit_card(
+    %     R,
+    %     1234465789102383362783, {08, 21}
+    %     ) ,
+    % valid card
+    C = 5500005555555559,
+    cart:credit_card(R, C, {08, 21}),
+    cart:checkout(C),
+    R .

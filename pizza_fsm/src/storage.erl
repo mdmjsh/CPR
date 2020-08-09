@@ -1,12 +1,13 @@
 -module(storage).
 
 -export([initDB/1, add_item/2, remove_item/2, get_cart/1, get_address/1, lookup/1, load_menu/0]).
--export([add_address/6, add_card_details/4]).
+-export([add_address/6, add_card_details/3]).
+-export([get_total/1, get_cc/1]).
 
 -record(cartDB, {referenceID, items=[], total=0}).
 -record(deliveryAddresses, {referenceID, city, country, street, number, name}).
 -record(menu, {itemId, type, item, string, price}).
--record(creditCards, {referenceID, ccNumber, expMo, expY}).
+-record(creditCards, {ccNumber, referenceID, expMo, expYr}).
 
 %% Setup operations
 %% ------------------------
@@ -21,7 +22,8 @@ initDB(Nodes) ->
         mnesia:table_info(type, cartDB),
         mnesia:table_info(type, menu),
         mnesia:table_info(type, deliveryAddresses),
-        mnesia:table_info(type, creditCards)
+        mnesia:table_info(type, creditCards),
+        mnesia:wait_for_tables([application], 30000)
     catch
         exit: _ ->
             io:format("initialising Mnesia.... ~n"),
@@ -31,12 +33,14 @@ initDB(Nodes) ->
             mnesia:create_table(menu, [{attributes, record_info(fields, menu)},
                 {type, ordered_set},
                 {ram_copies, Nodes}]),
-            mnesia:create_table(menu, [{attributes, record_info(fields, deliveryAddresses)},
+            mnesia:create_table(deliveryAddresses, [{attributes, record_info(fields,
+                 deliveryAddresses)},
                 {type, ordered_set},
-                {ram_copies, Nodes}]),
-            mnesia:create_table(menu, [{attributes, record_info(fields, creditCards)},
+                {disc_copies, Nodes}]),
+            mnesia:create_table(creditCards, [{attributes, record_info(fields,
+                creditCards)},
                 {type, ordered_set},
-                {ram_copies, Nodes}]),
+                {disc_copies, Nodes}]),
             load_menu()
     end.
 
@@ -78,7 +82,10 @@ add_item(ReferenceId, Item)  ->
     Total = Cart#cartDB.total + ItemPrice,
 
     F = fun() ->
-        mnesia:write(#cartDB{referenceID=ReferenceId, items=Items, total=Total})
+        mnesia:write(#cartDB{
+            referenceID=ReferenceId,
+            items=Items,
+            total=Total})
     end,
     io:format("Cart now includes ~p... ~n", [Items]),
     io:format("Cart total is now ~p... ~n", [Total]),
@@ -112,16 +119,16 @@ add_address(ReferenceId, Country, City, Street, Number, Name) ->
             name=Name
             })
         end,
-        mnesia:transaction(F) .
+        mnesia:transaction(F).
 
-add_card_details(ReferenceId, ReferenceId, CCNumber, {ExpMo,ExpY}) ->
+add_card_details(ReferenceId, CCNumber, {ExpMo,ExpYr}) ->
     io:format("Adding card details... ~n"),
     F = fun() ->
         mnesia:write(#creditCards{
-            referenceID=ReferenceId,
             ccNumber=CCNumber,
+            referenceID=ReferenceId,
             expMo=ExpMo,
-            expY=ExpY
+            expYr=ExpYr
             })
         end,
         mnesia:transaction(F) .
@@ -138,7 +145,6 @@ lookup(Item) ->
     io:format("Found record ~p ~n", [Results]),
     {Results#menu.itemId, Results#menu.price} .
 
-
 get_cart(ReferenceId) ->
     F = fun() ->
         mnesia:read({cartDB, ReferenceId})
@@ -146,9 +152,28 @@ get_cart(ReferenceId) ->
     {_, Results} = mnesia:transaction(F),
     Results .
 
+get_total(ReferenceId) ->
+    F = fun() ->
+        mnesia:read({cartDB, ReferenceId})
+    end,
+    {_, [{_, _, [_, _], Price}]} = mnesia:transaction(F),
+    Price .
+
 get_address(ReferenceId) ->
     F = fun() ->
         mnesia:read({deliveryAddresses, ReferenceId})
     end,
-    {_, Results} = mnesia:transaction(F),
-    Results .
+    {_, [{_, _, City, Country, Street, Number, Name}]} = mnesia:transaction(F),
+        [{City, Country, Street,Number, Name}].
+
+get_cc(CCNumber) ->
+    F = fun() ->
+        mnesia:read({creditCards, CCNumber})
+    end,
+    {_, [{_, CC, ReferenceId, ExpMo, ExpYr}]} = mnesia:transaction(F),
+        [{CC, ReferenceId, {ExpMo, ExpYr}}].
+
+
+% get_all(TableName) ->
+%     F = fun() -> mnesia:select(TableName,[{'_',[],['$_']}]) end,
+% mnesia:activity(transaction, F).

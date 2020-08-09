@@ -2,6 +2,7 @@
 -behaviour(gen_statem).
 -export([start_link/1, shopping/3, payment/3, delivery/3]).
 -export([add/2, remove/2, checkout/1, address/2, credit_card/3, delivered/1]).
+% -export([checkout/2]).
 -export([init/1, callback_mode/0]).
 
 -define(NAME, cart).
@@ -25,36 +26,41 @@ remove(ReferenceId, Item) ->
     Id = atom_to_list(Type) ++ atom_to_list(Item_),
     gen_statem:cast(?NAME, {remove, ReferenceId, Id}).
 
-checkout(Ref) when is_integer(Ref) ->
+checkout(Ref) when is_integer(Ref)->
     % Used to transition from payment -> delivery states
-    gen_statem:call(?NAME, {checkout, check_payment_details, Ref}),
-    ok ;
+    [{CCNumber, R, {ExpMo, ExpYr}}] = storage:get_cc(Ref),
+    Total = storage:get_total(R),
+    [Address] = storage:get_address(R),
+    Response = case cc:transaction(Address, CCNumber,
+        {ExpMo, ExpYr}, Total) of
+        {ok, TrxId} ->
+            gen_statem:cast(?NAME, {checkout, TrxId, R}),
+            ok;
+        {error, funds} -> {error, credit_info};
+        {error, invalid_card} -> {error, billing_info}
+    end,
+    Response;
 
 checkout(ReferenceId) ->
     % Used to transition from shopping -> payment states
     gen_statem:call(?NAME, {checkout, ReferenceId}),
     ok .
 
-
 address(ReferenceId, Address) ->
-    % Example Address format:
-    % [{address, {number, "StreetName"}
-    % {name, "Name of client"}
-    % {city, "City Name"}
-    % {country, "Country"}}]
-    % [{_, {Number, Street}, {_, Name}}]
     gen_statem:cast(?NAME, {address, [ReferenceId, Address]}),
     ok .
 
+
 credit_card(ReferenceId, CCNumber, {ExpMo,ExpYr}) ->
-    Address = storage:get_address(ReferenceId),
+    E = {error, card_invalid},
+    [Address] = storage:get_address(ReferenceId),
     Response = case cc:is_valid(Address, CCNumber, {ExpMo, ExpYr}) of
         true ->
-            gen_statem:call(?NAME, {credit_card, ReferenceId, CCNumber, {ExpMo,ExpYr}}),
-            checkout(CCNumber),
+            gen_statem:call(?NAME, {ReferenceId, CCNumber, {ExpMo,ExpYr}}),
             ok;
         false ->
-            {error, card_invalid}
+            gen_statem:cast(?NAME, E),
+            E
         end,
     Response .
 
@@ -76,6 +82,9 @@ init(ReferenceId) ->
 
 %% Private API
 %% ------------------------
+
+get_state() ->
+    sys:get_state(self()).
 
 stop() ->
     gen_statem:stop(?NAME).
@@ -114,20 +123,20 @@ payment(cast, {address, [ReferenceId, [{_, {Number, Street},
     storage:add_address(ReferenceId, Country, City, Street, Number, Name),
     {keep_state, {}} ;
 
-payment({call, From}, {credit_card, ReferenceId, CCNumber, {ExpMo,ExpYr}}, _) ->
-    storage:add_card_details(ReferenceId, ReferenceId, CCNumber, {ExpMo,ExpYr}),
+payment({call, From}, {ReferenceId, CCNumber, {ExpMo,ExpYr}}, _) ->
+    io:format("Card details valid... ~n"),
+    storage:add_card_details(ReferenceId, CCNumber, {ExpMo,ExpYr}),
     gen_statem:reply(From, ok),
     {keep_state, {}} ;
-    % {next_state, delivery, []}.
 
-payment({call, From}, {checkout, check_payment_details, ReferenceId}, _) ->
-    io:format("Checking card details... ~n"),
-    gen_statem:reply(From, ok),
+payment(cast, {checkout, TrxId, ReferenceId}, {}) ->
     {next_state, delivery, []}.
 
 delivery(enter, _, _) ->
     io:format("In state: delivery  ~n"),
     {keep_state, {}} .
+
+% delivery()
 
 %  delivery({timeout, Time, ReferenceId} ) ->
 %      io:format("Enjoy!  ~n"),
