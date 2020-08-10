@@ -44,13 +44,13 @@ transaction(Address, CCNumber, {ExpMo,ExpYr}, Price) ->
 
 % https://stackoverflow.com/a/31599075/4028718 - setting Response around a try
 cancel(TrxId) ->
+    io:format("cancalling transaction: ~p~n", [TrxId]),
     Response = try
-        case check_credit_card(TrxId)
+        case uuid:is_valid(TrxId)
             of true -> {ok};
             false -> {error, unknown}
             end
     catch
-    % error:{badarg, _}
        error: _ -> {error, unknown}
     end ,
     Response .

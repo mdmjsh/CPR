@@ -24,8 +24,7 @@ initDB(Nodes) ->
         mnesia:table_info(type, deliveryAddresses),
         mnesia:table_info(type, creditCards),
         mnesia:wait_for_tables([application], 30000)
-    catch
-        exit: _ ->
+    catch exit: _ ->
             io:format("initialising Mnesia.... ~n"),
             mnesia:create_table(cartDB, [{attributes, record_info(fields, cartDB)},
                 {type, ordered_set},

@@ -31,10 +31,10 @@ checkout(Ref) when is_integer(Ref)->
     [{CCNumber, R, {ExpMo, ExpYr}}] = storage:get_cc(Ref),
     Total = storage:get_total(R),
     [Address] = storage:get_address(R),
-    Response = case cc:transaction(Address, CCNumber,
-        {ExpMo, ExpYr}, Total) of
+    Response = case cc:transaction(Address, CCNumber, {ExpMo, ExpYr}, Total) of
         {ok, TrxId} ->
             gen_statem:cast(?NAME, {checkout, TrxId, R}),
+            io:format("started transaction: ~p~n", [TrxId]),
             ok;
         {error, funds} -> {error, credit_info};
         {error, invalid_card} -> {error, billing_info}
@@ -65,9 +65,8 @@ credit_card(ReferenceId, CCNumber, {ExpMo,ExpYr}) ->
     Response .
 
 delivered(ReferenceId) ->
-    gen_statem:call(?NAME, {ReferenceId}),
+    gen_statem:cast(?NAME, {ReferenceId}),
     ok .
-
 
 %% Callback implementations
 %% ------------------------
@@ -129,15 +128,21 @@ payment({call, From}, {ReferenceId, CCNumber, {ExpMo,ExpYr}}, _) ->
     gen_statem:reply(From, ok),
     {keep_state, {}} ;
 
-payment(cast, {checkout, TrxId, ReferenceId}, {}) ->
-    {next_state, delivery, []}.
+payment(cast, {checkout, TrxId, Ref}, Args) ->
+    io:format("got TrxId: ~p, Ref: ~p, Args: ~p", [TrxId, Ref,Args ]),
+    {next_state, delivery, TrxId}.
 
-delivery(enter, _, _) ->
-    io:format("In state: delivery  ~n"),
+delivery(enter, _, {TrxId, _}) ->
+    io:format("In state: delivery, TrxId: ~p", [TrxId]),
+    {keep_state, {timeout, 1500, TrxId}} ;
+
+delivery(timeout, {_, TrxId},  Args) ->
+    io:format("Timeout elasped, issueing refund... ~n"),
+    io:format("In timeout state: delivery, TrxId: ~p, Args: ~p", [TrxId, Args]),
+    Response = cc:cancel(TrxId),
+    {keep_state, refunded, Response};
+
+delivery(cast, {delivered, {ReferenceId}}, {}) ->
+    io:format("Order ~p delivered - enjoy! ~n", [ReferenceId]),
+    stop(),
     {keep_state, {}} .
-
-% delivery()
-
-%  delivery({timeout, Time, ReferenceId} ) ->
-%      io:format("Enjoy!  ~n"),
-%      {keep_state, {}} .
