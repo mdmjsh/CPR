@@ -14,6 +14,7 @@
 
 % pass in list of nodes, e.g. [node()] to run DB on
 initDB(Nodes) ->
+    process_flag(trap_exit, true),
     mnesia:create_schema(Nodes),
     mnesia:start(),
     % try to call the table info, and if fails

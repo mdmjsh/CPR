@@ -53,7 +53,9 @@ address(ReferenceId, Address) ->
 
 credit_card(ReferenceId, CCNumber, {ExpMo,ExpYr}) ->
     E = {error, card_invalid},
+
     [Address] = storage:get_address(ReferenceId),
+
     Response = case cc:is_valid(Address, CCNumber, {ExpMo, ExpYr}) of
         true ->
             gen_statem:call(?NAME, {ReferenceId, CCNumber, {ExpMo,ExpYr}}),
