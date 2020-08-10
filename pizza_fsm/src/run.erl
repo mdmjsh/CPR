@@ -40,11 +40,13 @@ add_payment(R) ->
     %     1234465789102383362783, {08, 21}
     %     ) ,
     % valid card
+    io:format("OI ~p ~n", [R] ),
     C = 5500005555555559,
     cart:credit_card(R, C, {08, 21}),
     cart:checkout(C),
+    cart:delivered(R),
     R .
 
 deliver(R) ->
-    timer:sleep(2000),
+    % timer:sleep(1000),
     cart:delivered(R).

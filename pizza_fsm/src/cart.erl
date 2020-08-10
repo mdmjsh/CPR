@@ -65,7 +65,8 @@ credit_card(ReferenceId, CCNumber, {ExpMo,ExpYr}) ->
     Response .
 
 delivered(ReferenceId) ->
-    gen_statem:cast(?NAME, {ReferenceId}),
+    io:format("DELIVERED referenceID: ~p~n", [ReferenceId]),
+    gen_statem:cast(?NAME, ReferenceId),
     ok .
 
 %% Callback implementations
@@ -128,18 +129,18 @@ payment({call, From}, {ReferenceId, CCNumber, {ExpMo,ExpYr}}, _) ->
     gen_statem:reply(From, ok),
     {keep_state, {}} ;
 
-payment(cast, {checkout, TrxId, ReferenceId}, {}) ->
-    {next_state, delivery, []}.
+payment(cast, {checkout, TrxId, _}, {}) ->
+    {next_state, delivery, [TrxId]}.
 
-delivery(enter, TrxId, _) ->
-    io:format("In state: delivery  ~n"),
-    {keep_state,  TrxId, {timeout, 1500, refund}} ;
+delivery(enter, _, [TrxId]) ->
+    io:format("In state: delivery ~n"),
+    {keep_state,  TrxId, {timeout, 1500, TrxId}} ;
+
+delivery(cast, ReferenceId, _) ->
+    io:format("Order ~p delivered - enjoy! ~n", [ReferenceId]),
+    stop() ;
 
 delivery(timeout, TrxId,  _) ->
     io:format("Timeout elasped, issueing refund... ~n"),
     Response = cc:cancel(TrxId),
-    {keep_state, refunded, Response};
-
-delivery(cast, {delivered, {ReferenceId}}, {}) ->
-    io:format("Order ~p delivered - enjoy! ~n", [ReferenceId]),
-    stop() .
+    {keep_state, {refunded, Response}}.
