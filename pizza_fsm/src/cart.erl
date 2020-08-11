@@ -1,18 +1,22 @@
 -module(cart).
 -behaviour(gen_statem).
--export([start_link/1, shopping/3, payment/3, delivery/3]).
+-export([start_link/1, start_link/2, shopping/3, payment/3, delivery/3]).
 -export([add/2, remove/2, checkout/1, address/2, credit_card/3, delivered/1]).
-% -export([checkout/2]).
 -export([init/1, callback_mode/0]).
 
 -define(NAME, cart).
 
 %% Public API
 %% ------------------------
-start_link(UserName) ->
-    ReferenceId = create_reference(UserName),
+start_link(child, ReferenceId) ->
     gen_statem:start_link({local, ?NAME}, ?MODULE, ReferenceId, []),
     {ok, ReferenceId}.
+
+start_link(UserName) ->
+    ReferenceId = create_reference(UserName),
+    cart_supervisor:start_child(ReferenceId, {?NAME, start_link,
+        [child, ReferenceId]}) .
+    % start_link({child, ReferenceId}) .
 
 add(ReferenceId, Item) ->
     io:format("preparing to add ~p to cart ~p... ~n",[Item, ReferenceId]),
